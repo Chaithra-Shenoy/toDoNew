@@ -16,7 +16,6 @@ import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Service;
 
 import com.bridgeit.todoapplication.noteservice.model.Label;
@@ -150,18 +149,10 @@ public class NoteServiceImpl implements INoteService {
 	 */
 	@Override
 	public List<Note> display(String token) throws ToDoException {
-		/*
-		 * PreCondition.checkNotNull(token, "Null value is not supported, Enter token");
-		 * Claims data = util.parseJwt(token); logger.info(data.getId()); Optional<User>
-		 * user = userRepository.findById(data.getId());
-		 * logger.info(user.get().getEmail()); List<Note> note = repository.findAll();
-		 * return note;
-		 */
 		List<Note> list = new ArrayList<>();
 		List<Note> modifiedList = new ArrayList<>();
 		PreCondition.checkNotNull(token, "Token cannot be empty");
 		Claims email = util.parseJwt(token);
-		Optional<User> user = userRepository.findByEmail(email.getId());
 		list = repository.findAll();
 		for (Note n : list) {
 			if (n.isPinStatus() && !n.isTrashStatus() && !n.isArchieve()) {
@@ -268,10 +259,6 @@ public class NoteServiceImpl implements INoteService {
 		return note.get();
 	}
 
-	/**
-	 * @param lableDto
-	 * @param token
-	 */
 	@Override
 	public void createLabel(LabelDto lableDto, String token) {
 		Claims data = util.parseJwt(token);
@@ -280,12 +267,6 @@ public class NoteServiceImpl implements INoteService {
 		Label labelModel = model.map(lableDto, Label.class);
 		labelModel.setUser(user.get().getId());
 		labelRepository.save(labelModel);
-	}
-
-	@Override
-	public void deleteLabel(String name, String token) throws ToDoException {
-		PreCondition.checkArgument(labelRepository.existsById(name), "The entered Label name  is not present");
-		labelRepository.deleteByName(name);
 	}
 
 	@Override
@@ -299,32 +280,6 @@ public class NoteServiceImpl implements INoteService {
 		labelModel.setUser(user.get().getId());
 		labelRepository.save(labelModel);
 
-	}
-
-	@Override
-	public void addLabeltoNote(String name, String note, String token) throws ToDoException {
-		Claims data = util.parseJwt(token);
-		logger.info(data.getId());
-		Optional<User> user = userRepository.findByEmail(data.getId());
-		Optional<Note> note1 = repository.findByNoteId(note);
-		List<Note> noteList = repository.findByUser(user.get().getId());
-		System.out.println(noteList);
-		LabelDto label = new LabelDto();
-
-		PreCondition.checkArgument(repository.existsById(note), "The entered NoteId is not present");
-		for (Note n : noteList) {
-			System.out.println(n.getNoteId());
-
-			if (n.getNoteId().equals(note)) {
-				label.setName(name);
-				Label labelmap = model.map(label, Label.class);
-				labelRepository.save(labelmap);
-				System.out.println(label);
-				Note noteLabel = model.map(label, Note.class);
-				n.getLabel().add(label);
-				repository.save(n);
-			}
-		}
 	}
 
 	@Override
@@ -343,7 +298,7 @@ public class NoteServiceImpl implements INoteService {
 
 			if (n.getNoteId().equals(note)) {
 				System.out.println(label);
-				
+
 				n.getLabel().remove(label);
 				Note noteLabel = model.map(label, Note.class);
 				logger.info(label.getName());
@@ -352,5 +307,155 @@ public class NoteServiceImpl implements INoteService {
 			}
 		}
 	}
-	
+
+	@Override
+	public void addLabel(String labelId, String token, String noteId) throws ToDoException {
+		Claims userId = util.parseJwt(token);
+
+		logger.info("adding label");
+		Optional<User> user = userRepository.findById(userId.getId());
+		PreCondition.checkArgument(!user.isPresent(), "user does not exist");
+
+		Optional<Note> note = repository.findById(noteId);
+		PreCondition.checkArgument(note.isPresent(), "note does not exist");
+
+		if (note.get().getLabel() == null) {
+			System.out.println("----------------");
+			List<Label> newLabelList = new ArrayList<Label>();
+			note.get().setLabel(newLabelList);
+		}
+
+		Optional<Label> labelFound = labelRepository.findById(labelId);
+		Label label = new Label();
+
+		for (int i = 0; i < note.get().getLabel().size(); i++) {
+			if (labelId.equals(note.get().getLabel().get(i).getId())) {
+
+				throw new ToDoException("Label already present");
+			}
+		}
+
+		System.out.println("labelid" + labelFound.get().getId());
+		 
+		label.setName(labelFound.get().getName());
+		note.get().getLabel().add(label);
+		repository.save(note.get());
+
+	}
+
+	@Override
+	public void deleteLabel(String labelId, String token) throws ToDoException {
+
+		String userId = util.parseJwt(token).getId();
+
+		logger.info("deleting label");
+		Optional<User> user = userRepository.findById(userId);
+		PreCondition.checkArgument(!user.isPresent(), "user does not exist");
+		Optional<Label> labelFound = labelRepository.findById(labelId);
+		if (labelFound == null) {
+			throw new ToDoException("Label not found");
+		}
+		labelRepository.deleteById(labelId);
+
+		List<Note> noteList = repository.findAll();
+		for (int i = 0; i < noteList.size(); i++) {
+
+			for (int j = 0; j < noteList.get(i).getLabel().size(); j++) {
+				if (labelId.equals(noteList.get(i).getLabel().get(j).getId())) {
+					noteList.get(i).getLabel().remove(j);
+					Note note = noteList.get(i);
+					logger.info("label deleted suceesfully");
+					repository.save(note);
+					break;
+				}
+
+			}
+
+		}
+	}
+
+	@Override
+	public void renameLabel(String labelId, String token, String newLabelName) throws ToDoException {
+		String userId = util.parseJwt(token).getId();
+		Optional<User> user = userRepository.findById(userId);
+		PreCondition.checkArgument(!user.isPresent(), "user does not exist");
+		Optional<Label> labelFound = labelRepository.findById(labelId);
+		PreCondition.checkArgument(labelFound.isPresent(), "label does not exist");
+		logger.info("renamingthe label....");
+		labelFound.get().setName(newLabelName);
+		labelRepository.save(labelFound.get());
+		logger.info("renamingg and label is found....");
+
+		List<Note> noteList = repository.findAll();
+
+		for (int i = 0; i < noteList.size(); i++) {
+
+			if (noteList.get(i).getLabel() == null) {
+				continue;
+			}
+			System.out.println("|" + noteList.get(i).getLabel().size() + "|");
+			for (int j = 0; j < noteList.get(i).getLabel().size(); j++) {
+
+				if (labelId.equals(noteList.get(i).getLabel().get(j).getId())) {
+					noteList.get(i).getLabel().get(j).setName(newLabelName);
+					Note note = noteList.get(i);
+					logger.info("label updated");
+
+					repository.save(note);
+					break;
+				}
+
+			}
+		}
+
+	}
+
+	@Override
+	public void deleteLabelFromNote(String labelId, String token) throws ToDoException {
+
+		String userId = util.parseJwt(token).getId();
+
+		logger.info("deleting label");
+		Optional<User> user = userRepository.findById(userId);
+		PreCondition.checkArgument(!user.isPresent(), "user does not exist");
+
+		List<Note> noteList = repository.findAll();
+		for (int i = 0; i < noteList.size(); i++) {
+
+			for (int j = 0; j < noteList.get(i).getLabel().size(); j++) {
+				if (labelId.equals(noteList.get(i).getLabel().get(j).getId())) {
+					noteList.get(i).getLabel().remove(j);
+					Note note = noteList.get(i);
+					logger.info("label deleted suceesfully");
+					repository.save(note);
+					break;
+				}
+
+			}
+
+		}
+	}
+
+	@Override
+	public void addNewLabel(String note, String labelName, String token) throws ToDoException {
+		String user = util.parseJwt(token).getId();
+
+		Optional<Note> optionalNote = repository.findById(note);
+		List<Note> listOfNote = repository.findAll();
+		System.out.println(listOfNote);
+		LabelDto label = new LabelDto();
+		PreCondition.checkArgument(repository.existsById(note), "The entered noteId doesnot exist");
+		System.out.println("label");
+		for (Note n : listOfNote) {
+			if (n.getNoteId().equals(note)) {
+				label.setName(labelName);
+				
+				Label labelMap = model.map(label, Label.class);
+				labelRepository.save(labelMap);
+				Note noteLabel = model.map(label, Note.class);
+				n.getLabel().add(labelMap);
+				repository.save(n);
+			}
+		}
+	}
 }
