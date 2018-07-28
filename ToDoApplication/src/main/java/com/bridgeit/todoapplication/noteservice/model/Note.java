@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import io.swagger.annotations.ApiModelProperty;
@@ -38,7 +39,8 @@ public class Note {
 	private boolean pinStatus = false;
 	private boolean isArchieve=false;
 	
-	private List<LabelDto> label;	
+//	@DBRef(db="label")
+	private List<Label> label;	
 
 	
 
@@ -55,7 +57,7 @@ public class Note {
 	 * @param labels
 	 */
 	public Note(String noteId, String title, String description, String createdAt, String updatedAt, String user,
-			boolean trashStatus, boolean pinStatus, boolean isArchieve, List<LabelDto> labels) {
+			boolean trashStatus, boolean pinStatus, boolean isArchieve, List<Label> labels) {
 		super();
 		this.noteId = noteId;
 		this.title = title;
@@ -212,17 +214,27 @@ public class Note {
 	/**
 	 * @return the labels
 	 */
-	public List<LabelDto> getLabel() {
+	public List<Label> getLabel() {
 		return label;
 	}
 
 	/**
 	 * @param labels the labels to set
 	 */
-	public void setLabel(List<LabelDto> labels) {
+	public void setLabel(List<Label> labels) {
 		this.label = labels;
 	}
 
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "Note [noteId=" + noteId + ", title=" + title + ", description=" + description + ", createdAt="
+				+ createdAt + ", updatedAt=" + updatedAt + ", user=" + user + ", trashStatus=" + trashStatus
+				+ ", pinStatus=" + pinStatus + ", isArchieve=" + isArchieve + ", label=" + label + "]";
+	}
 	
 
 }

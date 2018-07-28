@@ -17,16 +17,18 @@ import com.bridgeit.todoapplication.noteservice.model.LabelDto;
  * @author Chaithra-Shenoy
  * @since Date 10-07-2018 <br>
  *        <p>
- *        <b>POJO Class having User related information and method.</b>
+ *        <b>ILabelRepository interface having one abstract method.</b>
  *        </p>
  */
 @Repository
-public interface ILabelRepository extends MongoRepository<Label, String>{
+public interface ILabelRepository extends MongoRepository<Label, String> {
 
 	/**
 	 * @param name
+	 *            <p>
+	 *            This method is used to delete a label based on labelName provided.
+	 *            </p>
 	 */
 	void deleteByName(String name);
-
 
 }

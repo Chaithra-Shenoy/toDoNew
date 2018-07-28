@@ -12,10 +12,10 @@ import org.springframework.data.mongodb.core.mapping.Document;
  * @author Chaithra-Shenoy
  * @since Date 10-07-2018 <br>
  *        <p>
- *        <b>POJO Class having User related information and method.</b>
+ *        <b>POJO Class having Label related information and method.</b>
  *        </p>
  */
-@Document
+@Document(collection="label")
 public class Label {
 
 	@Id

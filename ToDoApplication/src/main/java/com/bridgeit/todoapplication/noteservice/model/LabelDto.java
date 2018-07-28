@@ -13,19 +13,12 @@ import io.swagger.annotations.ApiModelProperty;
  * @author Chaithra-Shenoy
  * @since Date 10-07-2018 <br>
  *        <p>
- *        <b>POJO Class having User related information and method.</b>
+ *        <b>Label dto class having Label related information and method.</b>
  *        </p>
  */
 public class LabelDto {
 
-	/* (non-Javadoc)
-	 * @see java.lang.Object#toString()
-	 */
-	@Override
-	public String toString() {
-		return "LabelDto [id=" + id + ", name=" + name + "]";
-	}
-	@ApiModelProperty(hidden = true)
+	
 	private String id;
 	private String name;
 	
@@ -61,5 +54,11 @@ public class LabelDto {
 	public void setName(String name) {
 		this.name = name;
 	}
-	
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "LabelDto [id=" + id + ", name=" + name + "]";
+	}
 }

@@ -6,9 +6,7 @@ package com.bridgeit.todoapplication.noteservice.service;
 import java.text.ParseException;
 import java.util.List;
 
-import javax.servlet.http.HttpServletResponse;
 
-import com.bridgeit.todoapplication.noteservice.model.Label;
 import com.bridgeit.todoapplication.noteservice.model.LabelDto;
 import com.bridgeit.todoapplication.noteservice.model.Note;
 import com.bridgeit.todoapplication.noteservice.model.NoteDto;
@@ -135,7 +133,6 @@ public interface INoteService {
 	 */
 	Note setReminder(String token, String id, String reminderTime) throws ToDoException, ParseException;
 
-
 	/**
 	 * @param id
 	 * @param lableDto
@@ -146,7 +143,6 @@ public interface INoteService {
 	 *             </p>
 	 */
 	void updateLabel(String id, LabelDto lableDto, String token) throws ToDoException;
-
 
 	/**
 	 * @param name
@@ -164,6 +160,9 @@ public interface INoteService {
 	 * @param token
 	 * @param noteId
 	 * @throws ToDoException
+	 *             <p>
+	 *             Add existing label to the note
+	 *             </p>
 	 */
 	void addLabel(String labelId, String token, String noteId) throws ToDoException;
 
@@ -171,6 +170,9 @@ public interface INoteService {
 	 * @param labelId
 	 * @param token
 	 * @throws ToDoException
+	 *             <p>
+	 *             delete a label from note and labelList
+	 *             </p>
 	 */
 	void deleteLabel(String labelId, String token) throws ToDoException;
 
@@ -178,6 +180,9 @@ public interface INoteService {
 	 * @param labelId
 	 * @param token
 	 * @throws ToDoException
+	 *             <p>
+	 *             Deletes a label from note.
+	 *             </p>
 	 */
 	void deleteLabelFromNote(String labelId, String token) throws ToDoException;
 
@@ -186,6 +191,9 @@ public interface INoteService {
 	 * @param token
 	 * @param newLabelName
 	 * @throws ToDoException
+	 *             <p>
+	 *             To Rename a labelName in labelList and Note.
+	 *             </p>
 	 */
 	void renameLabel(String labelId, String token, String newLabelName) throws ToDoException;
 
@@ -193,9 +201,11 @@ public interface INoteService {
 	 * @param note
 	 * @param labelName
 	 * @param token
-	 * @throws ToDoException 
+	 * @throws ToDoException
+	 *             <p>
+	 *             To add a new label to note and LabelList.
+	 *             </p>
 	 */
 	void addNewLabel(String note, String labelName, String token) throws ToDoException;
-
 
 }

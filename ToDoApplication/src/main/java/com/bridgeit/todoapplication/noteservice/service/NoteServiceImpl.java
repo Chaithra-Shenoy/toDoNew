@@ -152,7 +152,6 @@ public class NoteServiceImpl implements INoteService {
 		List<Note> list = new ArrayList<>();
 		List<Note> modifiedList = new ArrayList<>();
 		PreCondition.checkNotNull(token, "Token cannot be empty");
-		Claims email = util.parseJwt(token);
 		list = repository.findAll();
 		for (Note n : list) {
 			if (n.isPinStatus() && !n.isTrashStatus() && !n.isArchieve()) {
@@ -225,6 +224,9 @@ public class NoteServiceImpl implements INoteService {
 		repository.save(note);
 	}
 
+	/* (non-Javadoc)
+	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#ArchieveNote(java.lang.String, java.lang.String)
+	 */
 	@Override
 	public void ArchieveNote(String noteId, String token) throws ToDoException {
 		PreCondition.checkNotNull(token, "Null value is not supported, Enter token");
@@ -238,6 +240,9 @@ public class NoteServiceImpl implements INoteService {
 		repository.save(note);
 	}
 
+	/* (non-Javadoc)
+	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#setReminder(java.lang.String, java.lang.String, java.lang.String)
+	 */
 	@Override
 	public Note setReminder(String token, String id, String reminderTime) throws ParseException, ToDoException {
 		Optional<Note> note = PreCondition.checkNotNull(repository.findById(id), "No notes found");
@@ -259,6 +264,9 @@ public class NoteServiceImpl implements INoteService {
 		return note.get();
 	}
 
+	/* (non-Javadoc)
+	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#createLabel(com.bridgeit.todoapplication.noteservice.model.LabelDto, java.lang.String)
+	 */
 	@Override
 	public void createLabel(LabelDto lableDto, String token) {
 		Claims data = util.parseJwt(token);
@@ -269,6 +277,9 @@ public class NoteServiceImpl implements INoteService {
 		labelRepository.save(labelModel);
 	}
 
+	/* (non-Javadoc)
+	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#updateLabel(java.lang.String, com.bridgeit.todoapplication.noteservice.model.LabelDto, java.lang.String)
+	 */
 	@Override
 	public void updateLabel(String id, LabelDto lableDto, String token) throws ToDoException {
 		Claims data = util.parseJwt(token);
@@ -282,12 +293,15 @@ public class NoteServiceImpl implements INoteService {
 
 	}
 
+	/* (non-Javadoc)
+	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#removeLabeltoNote(java.lang.String, java.lang.String, java.lang.String)
+	 */
+	@SuppressWarnings({ "unlikely-arg-type", "unused" })
 	@Override
 	public void removeLabeltoNote(String name, String note, String token) throws ToDoException {
 		Claims data = util.parseJwt(token);
 		logger.info(data.getId());
 		Optional<User> user = userRepository.findByEmail(data.getId());
-		Optional<Note> note1 = repository.findByNoteId(note);
 		List<Note> noteList = repository.findByUser(user.get().getId());
 		System.out.println(noteList);
 		LabelDto label = new LabelDto();
@@ -308,6 +322,9 @@ public class NoteServiceImpl implements INoteService {
 		}
 	}
 
+	/* (non-Javadoc)
+	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#addLabel(java.lang.String, java.lang.String, java.lang.String)
+	 */
 	@Override
 	public void addLabel(String labelId, String token, String noteId) throws ToDoException {
 		Claims userId = util.parseJwt(token);
@@ -343,6 +360,9 @@ public class NoteServiceImpl implements INoteService {
 
 	}
 
+	/* (non-Javadoc)
+	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#deleteLabel(java.lang.String, java.lang.String)
+	 */
 	@Override
 	public void deleteLabel(String labelId, String token) throws ToDoException {
 
@@ -374,6 +394,9 @@ public class NoteServiceImpl implements INoteService {
 		}
 	}
 
+	/* (non-Javadoc)
+	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#renameLabel(java.lang.String, java.lang.String, java.lang.String)
+	 */
 	@Override
 	public void renameLabel(String labelId, String token, String newLabelName) throws ToDoException {
 		String userId = util.parseJwt(token).getId();
@@ -410,6 +433,9 @@ public class NoteServiceImpl implements INoteService {
 
 	}
 
+	/* (non-Javadoc)
+	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#deleteLabelFromNote(java.lang.String, java.lang.String)
+	 */
 	@Override
 	public void deleteLabelFromNote(String labelId, String token) throws ToDoException {
 
@@ -436,6 +462,10 @@ public class NoteServiceImpl implements INoteService {
 		}
 	}
 
+	/* (non-Javadoc)
+	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#addNewLabel(java.lang.String, java.lang.String, java.lang.String)
+	 */
+	@SuppressWarnings("unused")
 	@Override
 	public void addNewLabel(String note, String labelName, String token) throws ToDoException {
 		String user = util.parseJwt(token).getId();

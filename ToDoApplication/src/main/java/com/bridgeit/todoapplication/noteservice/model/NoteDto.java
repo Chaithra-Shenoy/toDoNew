@@ -16,7 +16,8 @@ import java.util.List;
  *        </p>
  */
 @SuppressWarnings("serial")
-public class NoteDto implements Serializable{
+public class NoteDto implements Serializable {
+
 	private String title;
 	private String description;
 	private String user;
@@ -66,15 +67,17 @@ public class NoteDto implements Serializable{
 	public void setUser(String user) {
 		this.user = user;
 	}
-	
+
 	/**
 	 * @return the label
 	 */
 	public List<LabelDto> getLabel() {
 		return label;
 	}
+
 	/**
-	 * @param label the label to set
+	 * @param label
+	 *            the label to set
 	 */
 	public void setLabel(List<LabelDto> label) {
 		this.label = label;
