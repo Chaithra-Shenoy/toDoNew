@@ -25,6 +25,9 @@ public class ConsumerImpl implements IConsumer {
 	@Autowired
 	private MailSecurity emailSecurity;
 
+	/* (non-Javadoc)
+	 * @see com.bridgeit.todoapplication.utilityservice.messageService.IConsumer#recievedMessage(com.bridgeit.todoapplication.userservice.model.MailDto)
+	 */
 	@Override
 	@RabbitListener(queues = "${rabbit.rabbitmq.queue}")
 	public void recievedMessage(MailDto mailDTO) throws MessagingException {

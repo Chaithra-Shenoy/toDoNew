@@ -11,6 +11,10 @@ import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.core.env.Environment;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -37,6 +41,8 @@ import io.jsonwebtoken.Claims;
  *        </p>
  */
 @Service
+@PropertySource("classpath:message.properties")
+
 public class UserServiceImplementation implements IUserService {
 
 	@Autowired
@@ -53,6 +59,13 @@ public class UserServiceImplementation implements IUserService {
 	
 	@Autowired
 	private MailService mailService;
+	@Value("${email.null}")
+	private String emailNull;
+	@Value("${registered.already}")
+	private String userRepeat;
+	
+	   @Autowired
+	   Environment env;
 
 	public static final Logger logger = LoggerFactory.getLogger(UserServiceImplementation.class);
 
@@ -65,11 +78,13 @@ public class UserServiceImplementation implements IUserService {
 	 */
 	@Override
 	public void registerUser(RegisterDto registerDTO, String uri) throws MessagingException, ToDoException {
+		logger.error(emailNull);
+		PreCondition.checkNotNull(registerDTO.getEmail(), emailNull);
 		Optional<User> optionalUser = userDao.findByEmail(registerDTO.getEmail());
 		PreCondition.checkNotNull(registerDTO, "Null value is not supported");
 
 		if (optionalUser.isPresent()) {
-			throw new ToDoException("User with this email already registered");
+			throw new ToDoException(userRepeat);
 		}
 		Utility.isValidateAllFields(registerDTO);
 		String token = utility.createToken(registerDTO.getEmail());
@@ -95,7 +110,7 @@ public class UserServiceImplementation implements IUserService {
 	
 		Optional<User> optionalUser = userDao.findByEmail(loginDTO.getEmail());
 		if(optionalUser.get().isActivate()) {
-		PreCondition.checkNotNull(loginDTO.getEmail(), "Null value is not supported,Enter emailId");
+		PreCondition.checkNotNull(loginDTO.getEmail(), emailNull);
 		PreCondition.checkNotNull(loginDTO.getPassword(), "Null value is not supported, Enter Password");
 
 		String token = utility.createToken(loginDTO.getEmail());
@@ -105,7 +120,7 @@ public class UserServiceImplementation implements IUserService {
 		}
 		logger.info("password is correct");
 		String body="Login Successfull";
-		mailService.sendMail(loginDTO.getEmail(), token, body);
+		mailService.sendMail(loginDTO.getEmail(), body, token);
 		return token;
 		}
 		logger.info("user is not active");
@@ -122,7 +137,7 @@ public class UserServiceImplementation implements IUserService {
 	@Override
 	public void forgotPassword(String emailId, String uri) throws MessagingException, ToDoException {
 		Optional<User> optionalUser = userDao.findByEmail(emailId);
-		PreCondition.checkNotNull(emailId, "Null value is not supported,Enter emailId");
+		PreCondition.checkNotNull(emailId, emailNull);
 		logger.info(optionalUser.get().getEmail());
 		String token = utility.createToken(optionalUser.get().getEmail());
 		logger.info(token);

@@ -15,5 +15,8 @@ import com.bridgeit.todoapplication.userservice.model.MailDto;
  *        </p>
  */
 public interface IProducer {
+	/**
+	 * @param mailDTO
+	 */
 	public void produceMessage(MailDto mailDTO);
 }

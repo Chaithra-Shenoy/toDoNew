@@ -16,7 +16,7 @@ import com.bridgeit.todoapplication.utilityservice.messageService.ProducerImpl;
  * @author Chaithra-Shenoy
  * @since Date 10-07-2018 <br>
  *        <p>
- *        <b>POJO Class having User related information and method.</b>
+ *        <b>Mail Service class.</b>
  *        </p>
  */
 @Service
@@ -25,12 +25,19 @@ public class MailService {
 	@Autowired
 	private ProducerImpl producer;
 	
+	/**
+	 * @param to
+	 * @param body
+	 * @param message
+	 */
 	public void sendMail(String to, String body, String message) {
 	
 		MailDto mailDTO = new MailDto();
 		mailDTO.setTo(to);
 		mailDTO.setSubject(body);
-		mailDTO.setBody(message);
+		mailDTO.setText("Congradulation! ");
+		mailDTO.setBody("HI, Welcome to ToDoApplication "+message);
+		mailDTO.setSignature(" With regards, \n Chaithra Shenoy \n  Contact me-8970190641 \n Mumbai");
 	
 		producer.produceMessage(mailDTO);
 	}

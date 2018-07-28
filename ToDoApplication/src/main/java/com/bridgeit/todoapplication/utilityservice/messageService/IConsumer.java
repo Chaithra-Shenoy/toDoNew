@@ -16,5 +16,9 @@ import com.bridgeit.todoapplication.userservice.model.MailDto;
  */
 public interface IConsumer {
 
+	/**
+	 * @param mailDTO
+	 * @throws MessagingException
+	 */
 	public void recievedMessage(MailDto mailDTO) throws MessagingException;
 }

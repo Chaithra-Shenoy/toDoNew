@@ -7,7 +7,6 @@ import javax.mail.MessagingException;
 
 import com.bridgeit.todoapplication.userservice.model.MailDto;
 
-
 /**
  * 
  * 
@@ -19,6 +18,13 @@ import com.bridgeit.todoapplication.userservice.model.MailDto;
  */
 public interface MailSecurity {
 
+	/**
+	 * @param mailDTO
+	 * @throws MessagingException
+	 *             <p>
+	 *             To send a mail to a user.
+	 *             </p>
+	 */
 	public void sendEmail(MailDto mailDTO) throws MessagingException;
 
 }

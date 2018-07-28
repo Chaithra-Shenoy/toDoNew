@@ -33,6 +33,9 @@ public class ProducerImpl implements IProducer {
 	@Value("${rabbit.rabbitmq.routingkey}")
 	private String routingKey;
 
+	/* (non-Javadoc)
+	 * @see com.bridgeit.todoapplication.utilityservice.messageService.IProducer#produceMessage(com.bridgeit.todoapplication.userservice.model.MailDto)
+	 */
 	@Override
 	public void produceMessage(MailDto mailDTO) {
 		amqpTemplate.convertAndSend(exchange, routingKey, mailDTO);
