@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.mongodb.core.mapping.DBRef;
-import org.springframework.data.mongodb.core.mapping.Document;
 
 import io.swagger.annotations.ApiModelProperty;
 
@@ -21,7 +21,7 @@ import io.swagger.annotations.ApiModelProperty;
  *        <b>POJO Class having Note related information and method.</b>
  *        </p>
  */
-@Document
+@Document(indexName="test",type="note")
 public class Note {
 
 	@Id

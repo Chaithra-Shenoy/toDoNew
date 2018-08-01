@@ -18,17 +18,22 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.bridgeit.todoapplication.configuration.ToDoConfig;
 import com.bridgeit.todoapplication.noteservice.model.Label;
 import com.bridgeit.todoapplication.noteservice.model.LabelDto;
 import com.bridgeit.todoapplication.noteservice.model.Note;
 import com.bridgeit.todoapplication.noteservice.model.NoteDto;
+import com.bridgeit.todoapplication.noteservice.repository.IElasticRepoLabel;
+import com.bridgeit.todoapplication.noteservice.repository.IElasticSearchRepository;
 import com.bridgeit.todoapplication.noteservice.repository.ILabelRepository;
 import com.bridgeit.todoapplication.noteservice.repository.INoteRepository;
 import com.bridgeit.todoapplication.userservice.dao.IUserRepository;
 import com.bridgeit.todoapplication.userservice.exception.ToDoException;
 import com.bridgeit.todoapplication.userservice.model.User;
+import com.bridgeit.todoapplication.utilityservice.Messages;
 import com.bridgeit.todoapplication.utilityservice.PreCondition;
 import com.bridgeit.todoapplication.utilityservice.Utility;
+import com.bridgeit.todoapplication.utilityservice.interceptor.NoteInterceptor;
 import com.bridgeit.todoapplication.utilityservice.mailService.MailService;
 
 import io.jsonwebtoken.Claims;
@@ -68,6 +73,18 @@ public class NoteServiceImpl implements INoteService {
 	@Autowired
 	private IUserRepository userDao;
 
+	@Autowired
+	Messages messages;
+
+	@Autowired
+	PreCondition precondition;
+	
+	@Autowired
+	IElasticSearchRepository elasticRepository;
+	
+	@Autowired
+	IElasticRepoLabel elasticLabel;
+
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -76,20 +93,26 @@ public class NoteServiceImpl implements INoteService {
 	 * bridgeit.todoapplication.noteservice.model.Note, java.lang.String)
 	 */
 	@Override
-	public void createNote(NoteDto note, String token) throws ToDoException {
-		PreCondition.checkNotNull(note.getDescription(), "Null value is not supported, Enter description");
-		PreCondition.checkNotNull(token, "Null value is not supported, Enter token");
-
-		Claims data = util.parseJwt(token);
-		logger.info(data.getId());
-		Optional<User> user = userRepository.findByEmail(data.getId());
+	public String createNote(NoteDto note, String userId) throws ToDoException {
+		precondition.checkNotNull(note.getDescription(), messages.get("109"));
+		precondition.checkNotNull(note.getTitle(), messages.get("110"));
+		precondition.checkNotNull(userId, messages.get("102"));
+		logger.debug("-user id from token-");
+		logger.info(userId);
+		Optional<User> user = userRepository.findByEmail(userId);
+		logger.debug("-Details entered by user is mapped to Note-");
 		Note noteModel = model.map(note, Note.class);
+		List<Label> label= noteModel.getLabel();
+		System.out.println(label);
 		noteModel.setUser(user.get().getId());
 		SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd/MM/yyyy");
 		String createdDate = simpleDateFormat.format(new Date());
 		noteModel.setCreatedAt(createdDate);
 		noteModel.setUpdatedAt(createdDate);
+		logger.debug("-Note Saved-");
 		repository.save(noteModel);
+		elasticRepository.save(noteModel);
+		return repository.save(noteModel).getNoteId();
 	}
 
 	/*
@@ -100,13 +123,16 @@ public class NoteServiceImpl implements INoteService {
 	 * lang.String, java.lang.String)
 	 */
 	@Override
-	public void delete(String noteId, String token) throws ToDoException {
-		PreCondition.checkNotNull(token, "Null value is not supported, Enter token");
-		PreCondition.checkArgument(repository.existsById(noteId), "The entered NoteId is not present");
-		Note note = repository.findById(noteId).get();
+	public String delete(String noteId, String userId) throws ToDoException {
+		precondition.checkNotNull(userId, messages.get("102"));
+		precondition.checkNotNull(noteId, messages.get("111"));
+		precondition.checkArgument(repository.existsById(noteId), messages.get("112"));
+		Note note = elasticRepository.findById(noteId).get();
 		logger.info(note.toString());
 		note.setTrashStatus(true);
 		repository.save(note);
+		elasticRepository.save(note);
+		return repository.save(note).getNoteId();
 	}
 
 	/*
@@ -118,17 +144,17 @@ public class NoteServiceImpl implements INoteService {
 	 * java.lang.String)
 	 */
 	@Override
-	public void update(String noteId, NoteDto note, String token) throws ToDoException {
-		PreCondition.checkNotNull(token, "Null value is not supported, Enter token");
-		PreCondition.checkNotNull(note.getDescription(), "Null value is not supported, Enter description");
-		PreCondition.checkArgument(repository.existsById(noteId), "The entered NoteId is not present");
-		Claims data = util.parseJwt(token);
-		Optional<User> user = userRepository.findByEmail(data.getId());
-		Optional<Note> note1 = repository.findById(noteId);
-		logger.info(note1.get().getDescription());
+	public String update(String noteId, NoteDto note, String userId) throws ToDoException {
+		precondition.checkNotNull(userId, messages.get("102"));
+		precondition.checkNotNull(noteId, messages.get("111"));
+		precondition.checkNotNull(note.getDescription(), messages.get("109"));
+		precondition.checkArgument(elasticRepository.existsById(noteId), messages.get("112"));
+		Optional<User> user = userRepository.findByEmail(userId);
+		Optional<Note> note1 = elasticRepository.findById(noteId);
+		logger.info("note is found from elasticdb"+note1.toString());
 		if (note1.get().isTrashStatus()) {
-			logger.info("Note is present in trash");
-			throw new ToDoException("Note is present in trash");
+			logger.error(messages.get("114"));
+			throw new ToDoException(messages.get("114"));
 		}
 		Note noteModel = model.map(note, Note.class);
 		noteModel.setNoteId(noteId);
@@ -136,8 +162,9 @@ public class NoteServiceImpl implements INoteService {
 		noteModel.setCreatedAt(note1.get().getCreatedAt());
 		SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd/MM/yyyy");
 		noteModel.setUpdatedAt(simpleDateFormat.format(new Date()));
-		repository.save(noteModel);
-
+		elasticRepository.save(noteModel);
+		logger.info("Note updated in Elastic database");
+		return repository.save(noteModel).getUpdatedAt();
 	}
 
 	/*
@@ -148,10 +175,10 @@ public class NoteServiceImpl implements INoteService {
 	 * lang.String)
 	 */
 	@Override
-	public List<Note> display(String token) throws ToDoException {
+	public List<Note> display(String userId) throws ToDoException {
 		List<Note> list = new ArrayList<>();
 		List<Note> modifiedList = new ArrayList<>();
-		PreCondition.checkNotNull(token, "Token cannot be empty");
+		precondition.checkNotNull(userId, messages.get("102"));
 		list = repository.findAll();
 		for (Note n : list) {
 			if (n.isPinStatus() && !n.isTrashStatus() && !n.isArchieve()) {
@@ -168,7 +195,6 @@ public class NoteServiceImpl implements INoteService {
 				modifiedList.add(n);
 			}
 		}
-
 		return modifiedList;
 	}
 
@@ -180,10 +206,13 @@ public class NoteServiceImpl implements INoteService {
 	 * (java.lang.String, java.lang.String)
 	 */
 	@Override
-	public void deletePermanent(String noteId, String token) throws ToDoException {
-		PreCondition.checkNotNull(token, "Null value is not supported, Enter token");
-		PreCondition.checkNotNull(noteId, "Null value is not supported, Enter noteId");
+	public String deletePermanent(String noteId, String userId) throws ToDoException {
+		precondition.checkNotNull(userId, messages.get("102"));
+		precondition.checkNotNull(noteId, messages.get("111"));
+		precondition.checkArgument(elasticRepository.existsById(noteId), messages.get("112"));
+		elasticRepository.deleteById(noteId);
 		repository.deleteById(noteId);
+		return noteId;
 	}
 
 	/*
@@ -193,13 +222,15 @@ public class NoteServiceImpl implements INoteService {
 	 * restoreFromTrash(java.lang.String, java.lang.String)
 	 */
 	@Override
-	public void restoreFromTrash(String noteId, String token) throws ToDoException {
-		PreCondition.checkNotNull(token, "Null value is not supported, Enter token");
-		PreCondition.checkNotNull(noteId, "Null value is not supported, Enter noteId");
-		PreCondition.checkArgument(repository.existsById(noteId), "The entered NoteId is not present");
-		Note note = repository.findById(noteId).get();
+	public void restoreFromTrash(String noteId, String userId) throws ToDoException {
+		precondition.checkNotNull(userId, messages.get("102"));
+		precondition.checkNotNull(noteId, messages.get("100"));
+		precondition.checkNotNull(noteId, messages.get("111"));
+		precondition.checkArgument(elasticRepository.existsById(noteId), messages.get("112"));
+		Note note = elasticRepository.findById(noteId).get();
 		if (note.isTrashStatus()) {
 			note.setTrashStatus(false);
+			elasticRepository.save(note);
 			repository.save(note);
 		}
 	}
@@ -212,47 +243,58 @@ public class NoteServiceImpl implements INoteService {
 	 * lang.String, java.lang.String)
 	 */
 	@Override
-	public void pinNote(String noteId, String token) throws ToDoException {
-		PreCondition.checkNotNull(token, "Null value is not supported, Enter token");
-		PreCondition.checkNotNull(noteId, "Null value is not supported,Enter noteId");
-		PreCondition.checkArgument(repository.existsById(noteId), "The entered NoteId is not present");
-		Note note = repository.findById(noteId).get();
+	public void pinNote(String noteId, String userId) throws ToDoException {
+		precondition.checkNotNull(userId, messages.get("102"));
+		precondition.checkNotNull(noteId, messages.get("111"));
+		precondition.checkArgument(elasticRepository.existsById(noteId), messages.get("112"));
+		Note note = elasticRepository.findById(noteId).get();
 		logger.info(note.toString());
 		if (!note.isTrashStatus()) {
 			note.setPinStatus(true);
 		}
+		elasticRepository.save(note);
 		repository.save(note);
 	}
 
-	/* (non-Javadoc)
-	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#ArchieveNote(java.lang.String, java.lang.String)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.bridgeit.todoapplication.noteservice.service.INoteService#ArchieveNote(
+	 * java.lang.String, java.lang.String)
 	 */
 	@Override
-	public void ArchieveNote(String noteId, String token) throws ToDoException {
-		PreCondition.checkNotNull(token, "Null value is not supported, Enter token");
-		PreCondition.checkNotNull(noteId, "Null value is not supported,Enter noteId");
-		PreCondition.checkArgument(repository.existsById(noteId), "The entered NoteId is not present");
-		Note note = repository.findById(noteId).get();
+	public void archieveNote(String noteId, String userId) throws ToDoException {
+		precondition.checkNotNull(userId, messages.get("102"));
+		precondition.checkNotNull(noteId, messages.get("111"));
+		precondition.checkArgument(elasticRepository.existsById(noteId), messages.get("112"));
+		Note note = elasticRepository.findById(noteId).get();
 		logger.info(note.toString());
 		if (!note.isTrashStatus()) {
 			note.setArchieve(true);
 		}
+		elasticRepository.save(note);
 		repository.save(note);
 	}
 
-	/* (non-Javadoc)
-	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#setReminder(java.lang.String, java.lang.String, java.lang.String)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.bridgeit.todoapplication.noteservice.service.INoteService#setReminder(
+	 * java.lang.String, java.lang.String, java.lang.String)
 	 */
 	@Override
-	public Note setReminder(String token, String id, String reminderTime) throws ParseException, ToDoException {
-		Optional<Note> note = PreCondition.checkNotNull(repository.findById(id), "No notes found");
+	public Note setReminder(String userId, String id, String reminderTime) throws ParseException, ToDoException {
+		precondition.checkNotNull(userId, messages.get("102"));
+		precondition.checkNotNull(id, messages.get("111"));
+		Optional<Note> note = precondition.checkNotNull(elasticRepository.findById(id), messages.get("112"));
 		Timer timer = null;
 		if (note.isPresent()) {
 			Date reminder = new SimpleDateFormat("yyyy/MM/dd HH:mm").parse(reminderTime);
 			long timeDifference = reminder.getTime() - new Date().getTime();
 			timer = new Timer();
-			Claims claim = util.parseJwt(token);
-			Optional<User> optionalUser = userDao.findByEmail(claim.getId());
+			Optional<User> optionalUser = userDao.findByEmail(userId);
 			timer.schedule(new TimerTask() {
 				@Override
 				public void run() {
@@ -264,186 +306,178 @@ public class NoteServiceImpl implements INoteService {
 		return note.get();
 	}
 
-	/* (non-Javadoc)
-	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#createLabel(com.bridgeit.todoapplication.noteservice.model.LabelDto, java.lang.String)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.bridgeit.todoapplication.noteservice.service.INoteService#createLabel(com
+	 * .bridgeit.todoapplication.noteservice.model.LabelDto, java.lang.String)
 	 */
 	@Override
-	public void createLabel(LabelDto lableDto, String token) {
-		Claims data = util.parseJwt(token);
-		logger.info(data.getId());
-		Optional<User> user = userRepository.findByEmail(data.getId());
+	public void createLabel(LabelDto lableDto, String userId) throws ToDoException {
+		precondition.checkNotNull(userId, messages.get("102"));
+		precondition.checkNotNull(lableDto.getName(), messages.get("126"));
+		
+		logger.info(userId);
+		Optional<User> user = userRepository.findByEmail(userId);
 		Label labelModel = model.map(lableDto, Label.class);
+		System.out.println(labelModel);
 		labelModel.setUser(user.get().getId());
+		elasticLabel.save(labelModel);
 		labelRepository.save(labelModel);
 	}
 
-	/* (non-Javadoc)
-	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#updateLabel(java.lang.String, com.bridgeit.todoapplication.noteservice.model.LabelDto, java.lang.String)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.bridgeit.todoapplication.noteservice.service.INoteService#updateLabel(
+	 * java.lang.String, com.bridgeit.todoapplication.noteservice.model.LabelDto,
+	 * java.lang.String)
 	 */
 	@Override
-	public void updateLabel(String id, LabelDto lableDto, String token) throws ToDoException {
-		Claims data = util.parseJwt(token);
-		logger.info(data.getId());
-		Optional<User> user = userRepository.findByEmail(data.getId());
-		PreCondition.checkArgument(labelRepository.existsById(id), "The entered Label name  is not present");
+	public void updateLabel(String id, LabelDto lableDto, String userId) throws ToDoException {
+		precondition.checkNotNull(userId, messages.get("102"));
+		precondition.checkNotNull(id, messages.get("111"));
+		precondition.checkNotNull(lableDto.getName(), messages.get("126"));
+		logger.info(userId);
+		Optional<User> user = userRepository.findByEmail(userId);
+		precondition.checkArgument(elasticLabel.existsById(id), messages.get("110"));
 		Label labelModel = model.map(lableDto, Label.class);
 		labelModel.setId(id);
 		labelModel.setUser(user.get().getId());
+		elasticLabel.save(labelModel);
 		labelRepository.save(labelModel);
-
+		
 	}
 
-	/* (non-Javadoc)
-	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#removeLabeltoNote(java.lang.String, java.lang.String, java.lang.String)
-	 */
-	@SuppressWarnings({ "unlikely-arg-type", "unused" })
-	@Override
-	public void removeLabeltoNote(String name, String note, String token) throws ToDoException {
-		Claims data = util.parseJwt(token);
-		logger.info(data.getId());
-		Optional<User> user = userRepository.findByEmail(data.getId());
-		List<Note> noteList = repository.findByUser(user.get().getId());
-		System.out.println(noteList);
-		LabelDto label = new LabelDto();
-
-		PreCondition.checkArgument(repository.existsById(note), "The entered NoteId is not present");
-		for (Note n : noteList) {
-			System.out.println(n.getNoteId());
-
-			if (n.getNoteId().equals(note)) {
-				System.out.println(label);
-
-				n.getLabel().remove(label);
-				Note noteLabel = model.map(label, Note.class);
-				logger.info(label.getName());
-				repository.save(n);
-				logger.info(n.getLabel().toString());
-			}
-		}
-	}
-
-	/* (non-Javadoc)
-	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#addLabel(java.lang.String, java.lang.String, java.lang.String)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.bridgeit.todoapplication.noteservice.service.INoteService#addLabel(java.
+	 * lang.String, java.lang.String, java.lang.String)
 	 */
 	@Override
-	public void addLabel(String labelId, String token, String noteId) throws ToDoException {
-		Claims userId = util.parseJwt(token);
+	public void addLabel(String labelId, String userId, String noteId) throws ToDoException {
+		precondition.checkNotNull(userId, messages.get("102"));
+		precondition.checkNotNull(noteId, messages.get("111"));
+		precondition.checkNotNull(labelId, messages.get("128"));
+		precondition.checkArgument(elasticRepository.existsById(noteId), messages.get("112"));
 
 		logger.info("adding label");
-		Optional<User> user = userRepository.findById(userId.getId());
-		PreCondition.checkArgument(!user.isPresent(), "user does not exist");
+		Optional<User> user = userRepository.findById(userId);
+		precondition.checkArgument(!user.isPresent(), messages.get("104"));
 
-		Optional<Note> note = repository.findById(noteId);
-		PreCondition.checkArgument(note.isPresent(), "note does not exist");
+		Optional<Note> note = elasticRepository.findById(noteId);
+		precondition.checkArgument(note.isPresent(), messages.get("113"));
 
 		if (note.get().getLabel() == null) {
-			System.out.println("----------------");
 			List<Label> newLabelList = new ArrayList<Label>();
 			note.get().setLabel(newLabelList);
 		}
-
-		Optional<Label> labelFound = labelRepository.findById(labelId);
+		Optional<Label> labelFound = elasticLabel.findById(labelId);
 		Label label = new Label();
-
 		for (int i = 0; i < note.get().getLabel().size(); i++) {
 			if (labelId.equals(note.get().getLabel().get(i).getId())) {
-
-				throw new ToDoException("Label already present");
+				logger.error("label already present");
+				throw new ToDoException(messages.get("129"));
 			}
 		}
-
-		System.out.println("labelid" + labelFound.get().getId());
-		 
+		label.setId(labelFound.get().getId());
 		label.setName(labelFound.get().getName());
 		note.get().getLabel().add(label);
+		elasticRepository.save(note.get());
 		repository.save(note.get());
-
 	}
 
-	/* (non-Javadoc)
-	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#deleteLabel(java.lang.String, java.lang.String)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.bridgeit.todoapplication.noteservice.service.INoteService#deleteLabel(
+	 * java.lang.String, java.lang.String)
 	 */
 	@Override
-	public void deleteLabel(String labelId, String token) throws ToDoException {
-
-		String userId = util.parseJwt(token).getId();
-
+	public void deleteLabel(String labelId, String userId) throws ToDoException {
+		precondition.checkNotNull(userId, messages.get("102"));
+		precondition.checkNotNull(labelId, messages.get("128"));
 		logger.info("deleting label");
 		Optional<User> user = userRepository.findById(userId);
-		PreCondition.checkArgument(!user.isPresent(), "user does not exist");
-		Optional<Label> labelFound = labelRepository.findById(labelId);
+		precondition.checkArgument(!user.isPresent(), messages.get("104"));
+		Optional<Label> labelFound = elasticLabel.findById(labelId);
 		if (labelFound == null) {
-			throw new ToDoException("Label not found");
+			logger.error("label not found");
+			throw new ToDoException(messages.get("127"));
 		}
+		elasticLabel.deleteById(labelId);
 		labelRepository.deleteById(labelId);
-
 		List<Note> noteList = repository.findAll();
 		for (int i = 0; i < noteList.size(); i++) {
-
 			for (int j = 0; j < noteList.get(i).getLabel().size(); j++) {
 				if (labelId.equals(noteList.get(i).getLabel().get(j).getId())) {
 					noteList.get(i).getLabel().remove(j);
 					Note note = noteList.get(i);
 					logger.info("label deleted suceesfully");
+					elasticRepository.save(note);
 					repository.save(note);
 					break;
 				}
-
 			}
-
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#renameLabel(java.lang.String, java.lang.String, java.lang.String)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.bridgeit.todoapplication.noteservice.service.INoteService#renameLabel(
+	 * java.lang.String, java.lang.String, java.lang.String)
 	 */
 	@Override
-	public void renameLabel(String labelId, String token, String newLabelName) throws ToDoException {
-		String userId = util.parseJwt(token).getId();
+	public void renameLabel(String labelId, String userId, String newLabelName) throws ToDoException {
+		precondition.checkNotNull(userId, messages.get("102"));
+		precondition.checkNotNull(labelId, messages.get("128"));
 		Optional<User> user = userRepository.findById(userId);
-		PreCondition.checkArgument(!user.isPresent(), "user does not exist");
-		Optional<Label> labelFound = labelRepository.findById(labelId);
-		PreCondition.checkArgument(labelFound.isPresent(), "label does not exist");
-		logger.info("renamingthe label....");
+		precondition.checkArgument(!user.isPresent(), messages.get("104"));
+		Optional<Label> labelFound = elasticLabel.findById(labelId);
+		precondition.checkArgument(labelFound.isPresent(), messages.get("127"));
+		logger.info("renaming the label....");
 		labelFound.get().setName(newLabelName);
+		elasticLabel.save(labelFound.get());
 		labelRepository.save(labelFound.get());
-		logger.info("renamingg and label is found....");
-
 		List<Note> noteList = repository.findAll();
-
 		for (int i = 0; i < noteList.size(); i++) {
-
 			if (noteList.get(i).getLabel() == null) {
 				continue;
 			}
-			System.out.println("|" + noteList.get(i).getLabel().size() + "|");
 			for (int j = 0; j < noteList.get(i).getLabel().size(); j++) {
-
 				if (labelId.equals(noteList.get(i).getLabel().get(j).getId())) {
 					noteList.get(i).getLabel().get(j).setName(newLabelName);
 					Note note = noteList.get(i);
 					logger.info("label updated");
-
+					elasticRepository.save(note);
 					repository.save(note);
 					break;
 				}
-
 			}
 		}
-
 	}
 
-	/* (non-Javadoc)
-	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#deleteLabelFromNote(java.lang.String, java.lang.String)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#
+	 * deleteLabelFromNote(java.lang.String, java.lang.String)
 	 */
 	@Override
-	public void deleteLabelFromNote(String labelId, String token) throws ToDoException {
-
-		String userId = util.parseJwt(token).getId();
+	public void deleteLabelFromNote(String labelId, String userId) throws ToDoException {
+		precondition.checkNotNull(userId, messages.get("102"));
+		precondition.checkNotNull(labelId, messages.get("128"));
 
 		logger.info("deleting label");
 		Optional<User> user = userRepository.findById(userId);
-		PreCondition.checkArgument(!user.isPresent(), "user does not exist");
+		precondition.checkArgument(!user.isPresent(), messages.get("104"));
 
 		List<Note> noteList = repository.findAll();
 		for (int i = 0; i < noteList.size(); i++) {
@@ -453,37 +487,43 @@ public class NoteServiceImpl implements INoteService {
 					noteList.get(i).getLabel().remove(j);
 					Note note = noteList.get(i);
 					logger.info("label deleted suceesfully");
+					elasticRepository.save(note);
 					repository.save(note);
 					break;
 				}
 
 			}
-
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see com.bridgeit.todoapplication.noteservice.service.INoteService#addNewLabel(java.lang.String, java.lang.String, java.lang.String)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.bridgeit.todoapplication.noteservice.service.INoteService#addNewLabel(
+	 * java.lang.String, java.lang.String, java.lang.String)
 	 */
 	@SuppressWarnings("unused")
 	@Override
-	public void addNewLabel(String note, String labelName, String token) throws ToDoException {
-		String user = util.parseJwt(token).getId();
-
-		Optional<Note> optionalNote = repository.findById(note);
+	public void addNewLabel(String note, String labelName, String userId) throws ToDoException {
+		precondition.checkNotNull(userId, messages.get("102"));
+		precondition.checkNotNull(note, messages.get("111"));
+		precondition.checkNotNull(labelName, messages.get("126"));
+		precondition.checkArgument(elasticRepository.existsById(note), messages.get("112"));
+		Optional<Note> optionalNote = elasticRepository.findById(note);
 		List<Note> listOfNote = repository.findAll();
 		System.out.println(listOfNote);
 		LabelDto label = new LabelDto();
-		PreCondition.checkArgument(repository.existsById(note), "The entered noteId doesnot exist");
-		System.out.println("label");
+		precondition.checkArgument(elasticRepository.existsById(note), messages.get("112"));
 		for (Note n : listOfNote) {
 			if (n.getNoteId().equals(note)) {
 				label.setName(labelName);
-				
 				Label labelMap = model.map(label, Label.class);
+				elasticLabel.save(labelMap);
 				labelRepository.save(labelMap);
 				Note noteLabel = model.map(label, Note.class);
 				n.getLabel().add(labelMap);
+				elasticRepository.save(n);
 				repository.save(n);
 			}
 		}

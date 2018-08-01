@@ -4,7 +4,7 @@
 package com.bridgeit.todoapplication.noteservice.model;
 
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.elasticsearch.annotations.Document;
 
 /**
  * 
@@ -15,7 +15,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
  *        <b>POJO Class having Label related information and method.</b>
  *        </p>
  */
-@Document(collection="label")
+@Document(indexName="testlabel",type="label")
 public class Label {
 
 	@Id
@@ -91,6 +91,14 @@ public class Label {
 	 */
 	public void setNote(String note) {
 		this.note = note;
+	}
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "Label [id=" + id + ", name=" + name + ", user=" + user + ", note=" + note + "]";
 	}
 	
 }
