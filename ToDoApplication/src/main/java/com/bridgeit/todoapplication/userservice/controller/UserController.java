@@ -5,6 +5,7 @@ package com.bridgeit.todoapplication.userservice.controller;
 
 import javax.mail.MessagingException;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,12 +93,13 @@ public class UserController {
 	 *             </p>
 	 */
 	@PostMapping("/login")
-	public ResponseEntity<?> loginUser(@RequestBody RegisterDto loginDTO, HttpServletRequest request) {
+	public ResponseEntity<?> loginUser(@RequestBody RegisterDto loginDTO, HttpServletRequest request,HttpServletResponse resp) {
 		logger.info("login  User");
 		logger.info(REQ_ID + " " + loginDTO.getEmail());
 		String token=null;
 		try {
 			token = userService.loginUser(loginDTO, request.getRequestURI());
+			resp.setHeader("token", token);
 		} catch (ToDoException | MessagingException e) {
 			logger.error("Login Unsuccessfull");
 			response.setMessage(e.getMessage());
